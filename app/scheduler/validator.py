@@ -1,3 +1,13 @@
+"""
+Hard-constraint validator for manual timetable adjustments.
+
+When an admin moves a session to a new (room, time_slot) pair via the
+PUT /timetable/entry/{entry_id} endpoint, this module checks whether the
+move would violate any of the four hard constraints enforced by the solver.
+The check operates on existing ScheduleEntry rows (not by rebuilding the
+full CP-SAT model) for speed.
+"""
+
 from sqlalchemy.orm import Session
 from app import models
 from typing import Tuple, List

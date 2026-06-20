@@ -1,3 +1,13 @@
+"""
+Timetable router — view and edit generated timetables, publish/unpublish runs.
+
+Endpoints:
+    GET  /timetable/{run_id}           — admin: full schedule for a completed run
+    PUT  /timetable/entry/{entry_id}   — admin: move a session to a new room/slot
+    POST /timetable/{run_id}/publish   — admin: make a run visible to all users
+    POST /timetable/{run_id}/unpublish — admin: hide a previously published run
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List

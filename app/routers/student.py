@@ -1,3 +1,11 @@
+"""
+Student router — students view the published timetable for their cohort.
+
+Endpoints:
+    GET /student/timetable    — any authenticated user; defaults to student's own dept+level
+    GET /student/departments  — public; used to populate the department filter dropdown
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List

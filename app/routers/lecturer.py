@@ -1,3 +1,13 @@
+"""
+Lecturer router — lecturers view their own schedule and manage unavailability.
+
+Endpoints:
+    GET    /lecturer/schedule               — lecturer: own published timetable (filter by day)
+    GET    /lecturer/unavailability         — lecturer: own unavailability records
+    POST   /lecturer/unavailability         — lecturer: mark a slot as unavailable
+    DELETE /lecturer/unavailability/{id}    — lecturer: remove an unavailability record
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List

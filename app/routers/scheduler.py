@@ -1,3 +1,16 @@
+"""
+Scheduler router — trigger CP-SAT runs and poll their status.
+
+Endpoints:
+    POST /scheduler/run              — admin: start a new scheduling run
+    GET  /scheduler/status/{run_id}  — admin: poll run progress
+    GET  /scheduler/runs             — admin: list all past runs (newest first)
+
+The solver runs as a FastAPI BackgroundTask so POST /run returns immediately.
+Frontend should poll /status/{run_id} every few seconds until status is no
+longer 'pending' or 'running'.
+"""
+
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -5,16 +18,17 @@ from app.database import get_db, SessionLocal
 from app import models, schemas
 from app.dependencies import require_admin
 from app.scheduler.solver import run_solver
-from app.routers.constraints import _constraint_config
+from app.routers.constraints import get_or_create_config
 
 router = APIRouter()
 
 
-def run_solver_background(run_id: int, config: dict):
+def run_solver_background(run_id: int, config: dict) -> None:
     """
-    Wrapper that creates its own DB session for the background task.
-    Background tasks run outside the request lifecycle so they need
-    their own session — they can't reuse the request's session.
+    Wrapper executed by FastAPI's BackgroundTasks.
+
+    Creates its own DB session because background tasks run outside the
+    request lifecycle and cannot reuse the request-scoped session.
     """
     db = SessionLocal()
     try:
@@ -30,11 +44,12 @@ def trigger_scheduler(
     _: models.User = Depends(require_admin),
 ):
     """
-    Admin triggers a new scheduling run.
-    Creates a run record immediately and starts the solver in the background.
-    Frontend polls /scheduler/status/{run_id} to track progress.
+    Start a new scheduling run.
+
+    Returns immediately with the run record (status='pending').
+    The solver runs in the background — poll /status/{run_id} to track progress.
+    Returns 409 if a run is already in progress.
     """
-    # Check no run is currently in progress
     active_run = (
         db.query(models.SchedulingRun)
         .filter(models.SchedulingRun.status == models.SolverStatus.running)
@@ -43,19 +58,20 @@ def trigger_scheduler(
     if active_run:
         raise HTTPException(
             status_code=409,
-            detail=f"A scheduling run is already in progress (ID: {active_run.id})",
+            detail=f"A scheduling run is already in progress (ID: {active_run.id}). "
+                   f"Wait for it to finish before starting a new one.",
         )
 
-    # Create the run record
     run = models.SchedulingRun(status=models.SolverStatus.pending)
     db.add(run)
     db.commit()
     db.refresh(run)
 
-    # Convert constraint config to dict for the background task
-    config = _constraint_config.model_dump()
+    # Read config from DB so the background task gets a stable snapshot
+    config = schemas.ConstraintConfig.model_validate(
+        get_or_create_config(db)
+    ).model_dump()
 
-    # Start solver in background — returns immediately to the client
     background_tasks.add_task(run_solver_background, run.id, config)
 
     return run
@@ -63,11 +79,15 @@ def trigger_scheduler(
 
 @router.get("/status/{run_id}", response_model=schemas.SchedulerRunOut)
 def get_run_status(
-    run_id: int, db: Session = Depends(get_db), _: models.User = Depends(require_admin)
+    run_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
 ):
-    """Frontend polls this every 3 seconds after triggering a run"""
+    """Return the current status of a scheduling run (for polling)."""
     run = (
-        db.query(models.SchedulingRun).filter(models.SchedulingRun.id == run_id).first()
+        db.query(models.SchedulingRun)
+        .filter(models.SchedulingRun.id == run_id)
+        .first()
     )
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -78,7 +98,7 @@ def get_run_status(
 def get_all_runs(
     db: Session = Depends(get_db), _: models.User = Depends(require_admin)
 ):
-    """Admin views history of all scheduling runs"""
+    """List all scheduling runs, newest first."""
     return (
         db.query(models.SchedulingRun)
         .order_by(models.SchedulingRun.created_at.desc())
