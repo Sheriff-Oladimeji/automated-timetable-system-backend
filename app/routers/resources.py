@@ -35,7 +35,7 @@ Endpoints:
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.database import get_db
 from app import models, schemas
 from app.dependencies import require_admin
@@ -290,6 +290,19 @@ def delete_lecturer(
 
 
 # ─── LECTURER-COURSE ASSIGNMENTS ─────────────────────────────────────────────
+
+
+@router.get("/lecturer-courses", response_model=List[schemas.LecturerCourseOut])
+def list_lecturer_courses(
+    lecturer_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
+    """List all lecturer-course assignments, optionally filtered by lecturer."""
+    q = db.query(models.LecturerCourse)
+    if lecturer_id:
+        q = q.filter(models.LecturerCourse.lecturer_id == lecturer_id)
+    return q.all()
 
 
 @router.post("/lecturer-courses", response_model=schemas.LecturerCourseOut, status_code=201)

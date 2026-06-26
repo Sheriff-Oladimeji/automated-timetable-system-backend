@@ -67,6 +67,41 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+def register_student(request: schemas.StudentRegisterRequest, db: Session = Depends(get_db)):
+    """
+    Student self-registration. Creates a User + Student profile in one step.
+    Open endpoint — no auth required.
+    """
+    if db.query(models.User).filter(models.User.email == request.email).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+
+    if db.query(models.Student).filter(models.Student.matric_number == request.matric_number).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Matric number already registered")
+
+    dept = db.query(models.Department).filter(models.Department.id == request.department_id).first()
+    if not dept:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
+
+    user = models.User(
+        email=request.email,
+        hashed_password=hash_password(request.password),
+        role=models.UserRole.student,
+    )
+    db.add(user)
+    db.flush()
+
+    student = models.Student(
+        user_id=user.id,
+        department_id=request.department_id,
+        level=request.level,
+        matric_number=request.matric_number,
+    )
+    db.add(student)
+    db.commit()
+    return {"message": "Account created. Please log in."}
+
+
 @router.post("/register-admin", status_code=status.HTTP_201_CREATED)
 def register_admin(request: schemas.LoginRequest, db: Session = Depends(get_db)):
     """

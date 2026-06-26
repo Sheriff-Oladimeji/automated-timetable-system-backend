@@ -59,6 +59,21 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class StudentRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    matric_number: str
+    department_id: int
+    level: int
+
+    @field_validator("level")
+    @classmethod
+    def level_must_be_valid(cls, v: int) -> int:
+        if v not in (100, 200, 300, 400, 500, 600, 700):
+            raise ValueError("level must be one of 100, 200, 300, 400, 500, 600, 700")
+        return v
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
