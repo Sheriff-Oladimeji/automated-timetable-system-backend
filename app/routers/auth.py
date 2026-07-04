@@ -100,6 +100,13 @@ def register_student(request: schemas.StudentRegisterRequest, db: Session = Depe
     return {"message": "Account created. Please log in."}
 
 
+@router.get("/setup-status")
+def setup_status(db: Session = Depends(get_db)):
+    """Returns whether the first admin account still needs to be created."""
+    exists = db.query(models.User).filter(models.User.role == models.UserRole.admin).first()
+    return {"needs_setup": exists is None}
+
+
 @router.post("/register-admin", status_code=status.HTTP_201_CREATED)
 def register_admin(request: schemas.LoginRequest, db: Session = Depends(get_db)):
     """

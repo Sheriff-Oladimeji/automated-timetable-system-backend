@@ -90,11 +90,21 @@ class Token(BaseModel):
     role: UserRole
 
 
+class StudentProfileEmbed(BaseModel):
+    department_id: int
+    level: int
+    matric_number: str
+
+    class Config:
+        from_attributes = True
+
+
 class UserOut(BaseModel):
     id: int
     email: str
     role: UserRole
     is_active: bool
+    student: Optional[StudentProfileEmbed] = None
 
     class Config:
         from_attributes = True
