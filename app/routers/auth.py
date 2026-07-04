@@ -37,10 +37,10 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, role: str) -> str:
     """Create a signed JWT that expires after ACCESS_TOKEN_EXPIRE_MINUTES."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": str(user_id), "exp": expire}
+    payload = {"sub": str(user_id), "exp": expire, "role": role}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -57,7 +57,7 @@ def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive"
         )
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, user.role.value)
     return {"access_token": token, "token_type": "bearer", "role": user.role}
 
 

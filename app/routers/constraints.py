@@ -158,7 +158,7 @@ def update_constraint_config(
     Changes are persisted in the database and survive server restarts.
     """
     cfg = get_or_create_config(db)
-    for field, value in data.model_dump().items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(cfg, field, value)
     db.commit()
     db.refresh(cfg)

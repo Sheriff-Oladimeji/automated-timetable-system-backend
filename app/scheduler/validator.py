@@ -81,18 +81,23 @@ def validate_manual_adjustment(
     # ── CHECK 3: No student group clash ───────────────────────────────────────
     course = db.query(models.Course).filter(models.Course.id == entry.course_id).first()
 
-    student_conflict = any(
-        e.time_slot_id == new_slot_id
-        and db.query(models.Course)
-        .filter(
-            models.Course.id == e.course_id,
-            models.Course.department_id == course.department_id,
-            models.Course.level == course.level,
-        )
-        .first()
-        is not None
-        for e in other_entries
-    )
+    # Collect course_ids for entries that share the target slot, then fetch in one query
+    same_slot_course_ids = [e.course_id for e in other_entries if e.time_slot_id == new_slot_id]
+    if same_slot_course_ids:
+        clashing_courses = {
+            c.id
+            for c in db.query(models.Course)
+            .filter(
+                models.Course.id.in_(same_slot_course_ids),
+                models.Course.department_id == course.department_id,
+                models.Course.level == course.level,
+            )
+            .all()
+        }
+    else:
+        clashing_courses = set()
+
+    student_conflict = bool(clashing_courses)
     if student_conflict:
         slot = (
             db.query(models.TimeSlot).filter(models.TimeSlot.id == new_slot_id).first()
