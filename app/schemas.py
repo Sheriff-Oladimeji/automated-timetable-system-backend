@@ -9,7 +9,7 @@ Naming convention:
 
 import re
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
-from typing import Optional, List
+from typing import Optional
 from enum import Enum
 from datetime import datetime
 
@@ -59,12 +59,22 @@ class LoginRequest(BaseModel):
     password: str
 
 
+_MATRIC_RE = re.compile(r"^\d{4}/\d{5}$")
+
+
 class StudentRegisterRequest(BaseModel):
     email: EmailStr
     password: str
     matric_number: str
     department_id: int
     level: int
+
+    @field_validator("matric_number")
+    @classmethod
+    def matric_format(cls, v: str) -> str:
+        if not _MATRIC_RE.match(v):
+            raise ValueError("Matric number must be in the format YYYY/NNNNN (e.g. 2020/15210)")
+        return v
 
     @field_validator("level")
     @classmethod
