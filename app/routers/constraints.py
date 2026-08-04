@@ -53,50 +53,36 @@ def get_all_unavailability(
 def add_unavailability(
     data: schemas.UnavailabilityCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    _: models.User = Depends(require_admin),
 ):
-    """
-    Mark a time slot as unavailable for a lecturer.
+    """Admin marks a time window as unavailable on behalf of a lecturer."""
+    if not data.lecturer_id:
+        raise HTTPException(status_code=422, detail="lecturer_id is required")
 
-    - Lecturers may only submit records for themselves.
-    - Admins may submit on behalf of any lecturer.
-    """
-    if current_user.role == models.UserRole.lecturer:
-        lecturer = (
-            db.query(models.Lecturer)
-            .filter(models.Lecturer.user_id == current_user.id)
-            .first()
-        )
-        if not lecturer or lecturer.id != data.lecturer_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You can only submit unavailability for yourself",
-            )
-    elif current_user.role != models.UserRole.admin:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    # Verify the referenced lecturer exists
     if not db.query(models.Lecturer).filter(models.Lecturer.id == data.lecturer_id).first():
         raise HTTPException(status_code=404, detail="Lecturer not found")
-
-    # Verify the referenced time slot exists
-    if not db.query(models.TimeSlot).filter(models.TimeSlot.id == data.time_slot_id).first():
-        raise HTTPException(status_code=404, detail="Time slot not found")
 
     existing = (
         db.query(models.LecturerUnavailability)
         .filter(
             models.LecturerUnavailability.lecturer_id == data.lecturer_id,
-            models.LecturerUnavailability.time_slot_id == data.time_slot_id,
+            models.LecturerUnavailability.day == data.day.value,
+            models.LecturerUnavailability.start_time == data.start_time,
         )
         .first()
     )
     if existing:
         raise HTTPException(
-            status_code=400, detail="Unavailability record already exists for this slot"
+            status_code=400, detail="Unavailability record already exists for this time"
         )
 
-    record = models.LecturerUnavailability(**data.model_dump())
+    record = models.LecturerUnavailability(
+        lecturer_id=data.lecturer_id,
+        day=data.day.value,
+        start_time=data.start_time,
+        end_time=data.end_time,
+        reason=data.reason,
+    )
     db.add(record)
     db.commit()
     db.refresh(record)

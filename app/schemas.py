@@ -302,14 +302,24 @@ class RoomOut(BaseModel):
 _TIME_RE = re.compile(r"^\d{2}:\d{2}$")
 
 
+_WORKING_START = "08:00"
+_WORKING_END   = "19:00"  # 7 PM
+
+
 def _validate_time_str(value: str, field_name: str) -> str:
-    """Ensure value is a valid HH:MM time string (00:00–23:59)."""
+    """Ensure value is a valid HH:MM within working hours (08:00–19:00)."""
     if not _TIME_RE.match(value):
         raise ValueError(f"{field_name} must be in HH:MM format (e.g. '08:00')")
     h, m = int(value[:2]), int(value[3:])
     if not (0 <= h <= 23 and 0 <= m <= 59):
         raise ValueError(f"{field_name} is not a valid time (got '{value}')")
-    return value
+    as_str = f"{h:02d}:{m:02d}"
+    if as_str < _WORKING_START or as_str > _WORKING_END:
+        raise ValueError(
+            f"{field_name} must be within working hours ({_WORKING_START}–{_WORKING_END}), "
+            f"got '{value}'"
+        )
+    return as_str
 
 
 class TimeSlotCreate(BaseModel):
@@ -332,6 +342,11 @@ class TimeSlotCreate(BaseModel):
     def end_after_start(self) -> "TimeSlotCreate":
         if self.start_time and self.end_time and self.end_time <= self.start_time:
             raise ValueError("end_time must be after start_time")
+        # Auto-correct duration if it doesn't match start/end
+        if self.start_time and self.end_time:
+            sh = int(self.start_time[:2]) * 60 + int(self.start_time[3:])
+            eh = int(self.end_time[:2])   * 60 + int(self.end_time[3:])
+            self.duration_minutes = eh - sh
         return self
 
     @field_validator("duration_minutes")
@@ -357,15 +372,35 @@ class TimeSlotOut(BaseModel):
 
 
 class UnavailabilityCreate(BaseModel):
-    lecturer_id: int
-    time_slot_id: int
+    lecturer_id: Optional[int] = None  # required for admin endpoint; ignored on lecturer endpoint
+    day: Day
+    start_time: str
+    end_time: str
     reason: Optional[str] = None
+
+    @field_validator("start_time")
+    @classmethod
+    def validate_start(cls, v: str) -> str:
+        return _validate_time_str(v, "start_time")
+
+    @field_validator("end_time")
+    @classmethod
+    def validate_end(cls, v: str) -> str:
+        return _validate_time_str(v, "end_time")
+
+    @model_validator(mode="after")
+    def end_after_start(self) -> "UnavailabilityCreate":
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValueError("end_time must be after start_time")
+        return self
 
 
 class UnavailabilityOut(BaseModel):
     id: int
     lecturer_id: int
-    time_slot_id: int
+    day: Day
+    start_time: str
+    end_time: str
     reason: Optional[str]
     created_at: datetime
 

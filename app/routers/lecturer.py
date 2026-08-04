@@ -92,7 +92,7 @@ def submit_unavailability(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_lecturer),
 ):
-    """Lecturer submits a time slot they are not available for"""
+    """Lecturer marks a time window they are unavailable for."""
     lecturer = (
         db.query(models.Lecturer)
         .filter(models.Lecturer.user_id == current_user.id)
@@ -101,27 +101,26 @@ def submit_unavailability(
     if not lecturer:
         raise HTTPException(status_code=404, detail="Lecturer profile not found")
 
-    # Force lecturer_id to be their own
-    if data.lecturer_id != lecturer.id:
-        raise HTTPException(
-            status_code=403, detail="You can only submit your own unavailability"
-        )
-
     existing = (
         db.query(models.LecturerUnavailability)
         .filter(
             models.LecturerUnavailability.lecturer_id == lecturer.id,
-            models.LecturerUnavailability.time_slot_id == data.time_slot_id,
+            models.LecturerUnavailability.day == data.day.value,
+            models.LecturerUnavailability.start_time == data.start_time,
         )
         .first()
     )
     if existing:
         raise HTTPException(
-            status_code=400, detail="Already marked unavailable for this slot"
+            status_code=400, detail="Already have an unavailability record starting at that time"
         )
 
     record = models.LecturerUnavailability(
-        lecturer_id=lecturer.id, time_slot_id=data.time_slot_id, reason=data.reason
+        lecturer_id=lecturer.id,
+        day=data.day.value,
+        start_time=data.start_time,
+        end_time=data.end_time,
+        reason=data.reason,
     )
     db.add(record)
     db.commit()

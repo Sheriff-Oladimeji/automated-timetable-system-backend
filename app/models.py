@@ -219,7 +219,6 @@ class TimeSlot(Base):
     end_time = Column(String, nullable=False)
     duration_minutes = Column(Integer, nullable=False)
 
-    unavailability = relationship("LecturerUnavailability", back_populates="time_slot")
     schedule_entries = relationship("ScheduleEntry", back_populates="time_slot")
 
 
@@ -227,23 +226,24 @@ class TimeSlot(Base):
 
 
 class LecturerUnavailability(Base):
-    """Records a time slot when a lecturer cannot be scheduled."""
+    """Records a time window when a lecturer cannot be scheduled."""
 
     __tablename__ = "lecturer_unavailability"
     __table_args__ = (
         UniqueConstraint(
-            "lecturer_id", "time_slot_id", name="uq_lecturer_unavailability"
+            "lecturer_id", "day", "start_time", name="uq_lecturer_unavailability"
         ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     lecturer_id = Column(Integer, ForeignKey("lecturers.id"), nullable=False)
-    time_slot_id = Column(Integer, ForeignKey("time_slots.id"), nullable=False)
+    day = Column(String, nullable=False)        # "monday" … "friday"
+    start_time = Column(String, nullable=False) # "HH:MM"
+    end_time = Column(String, nullable=False)   # "HH:MM"
     reason = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     lecturer = relationship("Lecturer", back_populates="unavailability")
-    time_slot = relationship("TimeSlot", back_populates="unavailability")
 
 
 class SystemConfig(Base):
