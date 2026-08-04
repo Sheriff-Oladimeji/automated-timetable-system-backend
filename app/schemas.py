@@ -275,6 +275,7 @@ class RoomCreate(BaseModel):
 
 class RoomUpdate(BaseModel):
     name: Optional[str] = None
+    room_type: Optional[RoomType] = None
     capacity: Optional[int] = None
     is_available: Optional[bool] = None
 
