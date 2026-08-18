@@ -241,18 +241,19 @@ def run_solver(run_id: int, db: Session, config: dict) -> None:
             return
 
         # ── 7. PERSIST SCHEDULE ENTRIES ───────────────────────────────────────
+        # x only contains keys for feasible (session, room, slot) combinations,
+        # so iterate over x.items() rather than the full Cartesian product.
         entries = []
-        for s_idx, session in enumerate(course_sessions):
-            for room in rooms:
-                for slot in time_slots:
-                    if solver.value(x[(s_idx, room["id"], slot["id"])]) == 1:
-                        entries.append(models.ScheduleEntry(
-                            run_id=run_id,
-                            course_id=session["course_id"],
-                            lecturer_id=session["lecturer_id"],
-                            room_id=room["id"],
-                            time_slot_id=slot["id"],
-                        ))
+        for (s_idx, room_id, slot_id), var in x.items():
+            if solver.value(var) == 1:
+                session = course_sessions[s_idx]
+                entries.append(models.ScheduleEntry(
+                    run_id=run_id,
+                    course_id=session["course_id"],
+                    lecturer_id=session["lecturer_id"],
+                    room_id=room_id,
+                    time_slot_id=slot_id,
+                ))
 
         db.bulk_save_objects(entries)
 
