@@ -36,12 +36,24 @@ def _validate_feasibility(courses, rooms, time_slots, unavailability):
 
     session_breakdown = {c["code"]: _sessions_needed(c["hours_per_week"]) for c in courses}
     total_sessions = sum(session_breakdown.values())
-    if total_sessions > len(time_slots):
-        breakdown_str = ", ".join(f"{code}: {n}" for code, n in session_breakdown.items())
+    # Each time slot can host one session per room, so total capacity = slots × rooms.
+    # Separate budgets per room type because lab courses can only use lab rooms.
+    lab_slots    = len([r for r in rooms if r["room_type"] == "laboratory"])   * len(time_slots)
+    theory_slots = len([r for r in rooms if r["room_type"] != "laboratory"])   * len(time_slots)
+    lab_sessions    = sum(_sessions_needed(c["hours_per_week"]) for c in courses if c["course_type"] == "lab")
+    theory_sessions = sum(_sessions_needed(c["hours_per_week"]) for c in courses if c["course_type"] != "lab")
+
+    if lab_sessions > lab_slots:
         errors.append(
-            f"Not enough time slots: need {total_sessions} class periods "
-            f"({breakdown_str}) but only {len(time_slots)} time slot(s) defined. "
-            f"Each time slot is one class period — add {total_sessions - len(time_slots)} more."
+            f"Not enough capacity for lab sessions: need {lab_sessions} lab-room slots "
+            f"but only {lab_slots} available ({len([r for r in rooms if r['room_type'] == 'laboratory'])} lab room(s) × "
+            f"{len(time_slots)} time slot(s)). Add more lab rooms or more time slots."
+        )
+    if theory_sessions > theory_slots:
+        errors.append(
+            f"Not enough capacity for theory sessions: need {theory_sessions} slots "
+            f"but only {theory_slots} available ({len([r for r in rooms if r['room_type'] != 'laboratory'])} room(s) × "
+            f"{len(time_slots)} time slot(s)). Add more rooms or more time slots."
         )
 
     lab_rooms = [r for r in rooms if r["room_type"] == "laboratory"]
