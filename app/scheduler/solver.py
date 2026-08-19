@@ -207,7 +207,7 @@ def run_solver(run_id: int, db: Session, config: dict) -> None:
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = config.get("time_limit_seconds", 60)
         solver.parameters.log_search_progress = False
-        solver.parameters.num_workers = 4  # use multiple cores when available
+        solver.parameters.num_workers = 1  # Render free tier: 0.1 vCPU, 512 MB — single worker saves RAM
 
         t0 = time.time()
         status = solver.solve(model)

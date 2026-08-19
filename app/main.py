@@ -12,7 +12,7 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 
 # Import all models so SQLAlchemy registers them with Base before create_all
 from app import models  # noqa: F401
@@ -30,8 +30,24 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create all tables on startup if they don't exist yet."""
+    """Create tables and recover from any crash-interrupted runs on startup."""
     Base.metadata.create_all(bind=engine)
+
+    # If the server was killed mid-run (e.g. OOM), mark lingering 'running'
+    # runs as failed so they don't block new scheduler attempts.
+    db = SessionLocal()
+    try:
+        stuck = db.query(models.SchedulingRun).filter(
+            models.SchedulingRun.status == models.SolverStatus.running
+        ).all()
+        for run in stuck:
+            run.status = models.SolverStatus.failed
+            run.notes = "Server restarted while run was in progress (likely OOM or crash)."
+        if stuck:
+            db.commit()
+    finally:
+        db.close()
+
     yield
 
 
