@@ -145,9 +145,21 @@ def build_model(data: Dict[str, Any], config: Dict[str, Any]):
             if len(group_vars) > 1:
                 model.add_at_most_one(group_vars)
 
-    # Soft constraints (S1–S4) are omitted: on a resource-constrained host
-    # the auxiliary variables they create (~4 k add_max_equality calls for S1
-    # alone) prevent CP-SAT from finding any solution within the time limit.
-    # Pure-feasibility mode (no objective) lets the solver return in seconds.
+    # ── H5: Balance sessions across days ─────────────────────────────────────
+    # Without this, the solver packs everything onto one day (cheapest move).
+    # Hard cap: no day gets more than ceil(total_sessions / num_days) + slack.
+    days = list({s["day"] for s in time_slots})
+    slot_day = {t["id"]: t["day"] for t in time_slots}
+    max_per_day = math.ceil(len(course_sessions) / max(len(days), 1)) + 3
+
+    for day in days:
+        day_vars = [
+            x[(s_idx, rid, tid)]
+            for s_idx in range(len(course_sessions))
+            for rid, tid in session_vars[s_idx]
+            if slot_day.get(tid) == day
+        ]
+        if day_vars:
+            model.add(sum(day_vars) <= max_per_day)
 
     return model, x, course_sessions
