@@ -428,7 +428,7 @@ class ConstraintConfig(BaseModel):
     back_to_back_penalty: int = 10
     spread_sessions_penalty: int = 5
     room_capacity_penalty: int = 20
-    time_limit_seconds: int = 60
+    time_limit_seconds: int = 120
 
     class Config:
         from_attributes = True  # allows ORM → schema conversion

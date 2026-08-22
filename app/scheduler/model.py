@@ -150,7 +150,7 @@ def build_model(data: Dict[str, Any], config: Dict[str, Any]):
     # Hard cap: no day gets more than ceil(total_sessions / num_days) + slack.
     days = list({s["day"] for s in time_slots})
     slot_day = {t["id"]: t["day"] for t in time_slots}
-    max_per_day = math.ceil(len(course_sessions) / max(len(days), 1)) + 3
+    max_per_day = math.ceil(len(course_sessions) / max(len(days), 1)) + 8
 
     for day in days:
         day_vars = [
